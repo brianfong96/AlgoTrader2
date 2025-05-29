@@ -1,6 +1,16 @@
 from __future__ import annotations
 
 import pandas as pd
+import yfinance as yf
+
+
+def fetch_voo_data() -> pd.DataFrame:
+    """Fetches the historical VOO price data for the maximum available period."""
+
+    ticker = yf.Ticker("VOO")
+    hist = ticker.history(period="max")
+    hist = hist.reset_index()
+    return hist[["Date", "Close"]]
 
 
 def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: float = 0.2) -> pd.DataFrame:
@@ -19,7 +29,8 @@ def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: flo
     -------
     pd.DataFrame
         History with columns ``Date``, ``Price``, ``Deposit``, ``Shares``,
-        ``TotalShares`` and ``PortfolioValue``.
+        ``TotalShares``, ``PortfolioValue``, ``TotalDeposit`` and
+        ``FinalTotalReturn``.
     """
 
     df = price_df.copy().reset_index(drop=True)
@@ -30,10 +41,12 @@ def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: flo
 
     history = []
     total_shares = 0.0
+    total_deposit = 0.0
 
     # Deposit for first month
     first_price = df.loc[0, "Close"]
     deposit = base_pad
+    total_deposit += deposit
     total_shares += deposit / first_price
     history.append(
         {
@@ -43,6 +56,7 @@ def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: flo
             "Shares": deposit / first_price,
             "TotalShares": total_shares,
             "PortfolioValue": total_shares * first_price,
+            "TotalDeposit": total_deposit,
         }
     )
 
@@ -59,6 +73,7 @@ def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: flo
             deposit = base_pad
 
         shares = deposit / curr_price
+        total_deposit += deposit
         total_shares += shares
         history.append(
             {
@@ -68,28 +83,36 @@ def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: flo
                 "Shares": shares,
                 "TotalShares": total_shares,
                 "PortfolioValue": total_shares * curr_price,
+                "TotalDeposit": total_deposit,
             }
         )
 
-    return pd.DataFrame(history)
-
-
-def run_backtest(price_csv: str) -> pd.DataFrame:
-    """Convenience function to run the backtest from a CSV file."""
-    price_df = pd.read_csv(price_csv)
-    result = backtest_pad(price_df)
+    result = pd.DataFrame(history)
+    final_return = result.iloc[-1]["PortfolioValue"] / result.iloc[-1]["TotalDeposit"] - 1
+    result["FinalTotalReturn"] = final_return
     return result
+
+
+def run_backtest(price_csv: str | None = None, base_pad: float = 100.0, threshold: float = 0.2) -> pd.DataFrame:
+    """Runs the backtest from a CSV file or by downloading data."""
+
+    if price_csv:
+        price_df = pd.read_csv(price_csv)
+    else:
+        price_df = fetch_voo_data()
+    return backtest_pad(price_df, base_pad=base_pad, threshold=threshold)
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Run PAD backtest on VOO.")
-    parser.add_argument("csv", help="CSV file with Date and Close columns")
+    parser.add_argument("--csv", help="Optional CSV file with Date and Close columns")
     parser.add_argument("--base", type=float, default=100.0, help="Base PAD amount")
     args = parser.parse_args()
 
-    df = run_backtest(args.csv)
+    df = run_backtest(args.csv, base_pad=args.base)
     pd.set_option("display.max_rows", None)
     print(df)
-    print("\nFinal portfolio value:", df.iloc[-1]["PortfolioValue"]) 
+    print("\nFinal portfolio value:", df.iloc[-1]["PortfolioValue"])
+    print("Final total return:", df.iloc[-1]["FinalTotalReturn"])
