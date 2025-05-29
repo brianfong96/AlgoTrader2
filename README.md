@@ -9,22 +9,33 @@ the monthly contribution increases by `20%` (`$120`). When the price rises by
 The repository includes:
 
 - `data/voo_prices.csv` – sample monthly price data used for testing.
-- `src/pad_strategy.py` – implementation of the back‑test logic.
+- `src/pad_strategy.py` – implementation of the back‑test logic. The script can
+  download historical VOO prices automatically using `yfinance`.
 - `tests/` – unit tests validating the strategy.
 
 ## Running the back‑test
 
+
+Running without arguments downloads the full history of VOO prices:
+
 ```bash
-python src/pad_strategy.py data/voo_prices.csv
+python src/pad_strategy.py
 ```
 
-This prints the month‑by‑month history and the final portfolio value.
+You can also supply your own CSV file:
+
+```bash
+python src/pad_strategy.py --csv data/voo_prices.csv
+```
+
+This prints the month‑by‑month history, the final portfolio value and the final
+total return.
 
 ## Running the tests
 
 The project uses `pytest` for testing. Install dependencies and run tests with:
 
 ```bash
-pip install pandas pytest
+pip install pandas yfinance pytest
 pytest
 ```

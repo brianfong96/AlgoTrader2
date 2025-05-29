@@ -67,3 +67,13 @@ def test_portfolio_value_consistency():
         abs(result.loc[i, "PortfolioValue"] - result.loc[i, "TotalShares"] * result.loc[i, "Price"]) < 1e-8
         for i in range(len(result))
     )
+
+
+def test_final_total_return_column():
+    df = sample_price_df()
+    result = backtest_pad(df)
+
+    total_deposit = result["TotalDeposit"].iloc[-1]
+    expected_return = result["PortfolioValue"].iloc[-1] / total_deposit - 1
+    assert "FinalTotalReturn" in result.columns
+    assert abs(result["FinalTotalReturn"].iloc[-1] - expected_return) < 1e-8
