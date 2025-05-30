@@ -38,6 +38,8 @@ triggers a change in deposits (both default to `20`). `--inc-pad` and
 are met (defaults `1.2` and `0.8`).
 Results can be logged to a directory using `--log <dir>`. The file is named
 using the provided arguments so multiple runs can be stored side by side.
+Summary metrics including annual returns are also written to the `results`
+directory unless `--no-results` is supplied.
 
 This prints the month‑by‑month history. At the end it prints the final
 portfolio value, the total amount deposited, the net profit and the final

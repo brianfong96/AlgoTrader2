@@ -1,5 +1,9 @@
 import pandas as pd
-from src.pad_strategy import backtest_pad, calculate_lump_sum
+from src.pad_strategy import (
+    backtest_pad,
+    calculate_lump_sum,
+    calculate_annual_return,
+)
 
 
 def sample_price_df():
@@ -101,3 +105,19 @@ def test_lump_sum_calculation():
 
     assert abs(shares - expected_shares) < 1e-8
     assert abs(profit - expected_profit) < 1e-8
+
+
+def test_calculate_annual_return():
+    df = sample_price_df()
+    result = backtest_pad(df)
+
+    final_value = result["PortfolioValue"].iloc[-1]
+    total_deposit = result["TotalDeposit"].iloc[-1]
+    duration_days = (pd.to_datetime(result["Date"].iloc[-1]) - pd.to_datetime(result["Date"].iloc[0])).days
+
+    ann = calculate_annual_return(final_value, total_deposit, duration_days)
+    expected_ratio = final_value / total_deposit
+    years = duration_days / 365.0
+    expected_ann = expected_ratio ** (1 / years) - 1
+
+    assert abs(ann - expected_ann) < 1e-8
