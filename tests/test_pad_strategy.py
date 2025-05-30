@@ -1,5 +1,5 @@
 import pandas as pd
-from src.pad_strategy import backtest_pad
+from src.pad_strategy import backtest_pad, calculate_lump_sum
 
 
 def sample_price_df():
@@ -87,3 +87,17 @@ def test_net_profit_and_return():
 
     # Calculated final return should be correct
     assert abs(expected_return - (final_value / total_deposit - 1)) < 1e-8
+
+
+def test_lump_sum_calculation():
+    df = sample_price_df()
+    result = backtest_pad(df)
+
+    shares, profit = calculate_lump_sum(result)
+    total_deposit = result["TotalDeposit"].iloc[-1]
+
+    expected_shares = total_deposit / result["Price"].iloc[0]
+    expected_profit = expected_shares * result["Price"].iloc[-1] - total_deposit
+
+    assert abs(shares - expected_shares) < 1e-8
+    assert abs(profit - expected_profit) < 1e-8

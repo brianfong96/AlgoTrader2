@@ -133,6 +133,17 @@ def run_backtest(
     )
 
 
+def calculate_lump_sum(result_df: pd.DataFrame) -> tuple[float, float]:
+    """Return lump sum shares and profit using the backtest result."""
+
+    total_deposit = result_df.iloc[-1]["TotalDeposit"]
+    first_price = result_df.iloc[0]["Price"]
+    last_price = result_df.iloc[-1]["Price"]
+    shares = total_deposit / first_price
+    profit = shares * last_price - total_deposit
+    return shares, profit
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -184,8 +195,9 @@ if __name__ == "__main__":
     final_return = (final_value / total_deposit - 1) * 100
     net_profit = final_value - total_deposit
 
-    lumpsum_shares = total_deposit / df.iloc[0]["Close"]
-    lumpsum_value = lumpsum_shares * df.iloc[-1]["Close"]
+    # Use Price column from the backtest result for lump sum calculations
+    lumpsum_shares = total_deposit / df.iloc[0]["Price"]
+    lumpsum_value = lumpsum_shares * df.iloc[-1]["Price"]
     lumpsum_profit = lumpsum_value - total_deposit
     profit_diff = net_profit - lumpsum_profit
     profit_diff_pct = (profit_diff / lumpsum_profit * 100) if lumpsum_profit != 0 else 0.0
