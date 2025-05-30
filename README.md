@@ -10,7 +10,8 @@ The repository includes:
 
 - `data/voo_prices.csv` – sample monthly price data used for testing.
 - `src/pad_strategy.py` – implementation of the back‑test logic. The script can
-  download historical VOO prices automatically using `yfinance`.
+  download historical VOO prices automatically using `yfinance`. Prices are
+  aggregated to month end so the PAD logic runs on monthly data.
 - `tests/` – unit tests validating the strategy.
 
 ## Running the back‑test
@@ -28,8 +29,8 @@ You can also supply your own CSV file:
 python src/pad_strategy.py --csv data/voo_prices.csv
 ```
 
-This prints the month‑by‑month history, the final portfolio value and the final
-total return.
+This prints the month‑by‑month history. At the end it prints the final
+portfolio value, the net profit and the final total return as a percentage.
 
 ## Running the tests
 

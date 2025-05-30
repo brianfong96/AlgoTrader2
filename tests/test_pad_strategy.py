@@ -69,11 +69,21 @@ def test_portfolio_value_consistency():
     )
 
 
-def test_final_total_return_column():
+def test_net_profit_and_return():
     df = sample_price_df()
     result = backtest_pad(df)
 
     total_deposit = result["TotalDeposit"].iloc[-1]
-    expected_return = result["PortfolioValue"].iloc[-1] / total_deposit - 1
-    assert "FinalTotalReturn" in result.columns
-    assert abs(result["FinalTotalReturn"].iloc[-1] - expected_return) < 1e-8
+    final_value = result["PortfolioValue"].iloc[-1]
+    expected_return = final_value / total_deposit - 1
+    expected_profit = final_value - total_deposit
+
+    # Net profit column should match portfolio value minus total deposit
+    assert "NetProfit" in result.columns
+    assert abs(result["NetProfit"].iloc[-1] - expected_profit) < 1e-8
+
+    # There should no longer be a FinalTotalReturn column
+    assert "FinalTotalReturn" not in result.columns
+
+    # Calculated final return should be correct
+    assert abs(expected_return - (final_value / total_deposit - 1)) < 1e-8

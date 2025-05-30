@@ -8,12 +8,12 @@ def fetch_voo_data() -> pd.DataFrame:
     """Fetches the historical VOO price data for the maximum available period."""
 
     ticker = yf.Ticker("VOO")
-    hist = ticker.history(period="max")
+    hist = ticker.history(period="max", interval="1mo")
     hist = hist.reset_index()
     return hist[["Date", "Close"]]
 
 
-def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: float = 0.2) -> pd.DataFrame:
+def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: float = 20.0) -> pd.DataFrame:
     """Backtests a percentage allocation strategy on VOO.
 
     Parameters
@@ -22,15 +22,14 @@ def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: flo
         DataFrame with columns ``Date`` and ``Close`` sorted by ``Date``.
     base_pad : float, default 100.0
         Base monthly purchase amount in dollars.
-    threshold : float, default 0.2
+    threshold : float, default 20.0
         Percentage threshold used to increase or decrease the purchase amount.
 
     Returns
     -------
     pd.DataFrame
         History with columns ``Date``, ``Price``, ``Deposit``, ``Shares``,
-        ``TotalShares``, ``PortfolioValue``, ``TotalDeposit`` and
-        ``FinalTotalReturn``.
+        ``TotalShares``, ``PortfolioValue``, ``TotalDeposit`` and ``NetProfit``.
     """
 
     df = price_df.copy().reset_index(drop=True)
@@ -42,6 +41,7 @@ def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: flo
     history = []
     total_shares = 0.0
     total_deposit = 0.0
+    threshold_pct = threshold / 100.0
 
     # Deposit for first month
     first_price = df.loc[0, "Close"]
@@ -57,6 +57,7 @@ def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: flo
             "TotalShares": total_shares,
             "PortfolioValue": total_shares * first_price,
             "TotalDeposit": total_deposit,
+            "NetProfit": total_shares * first_price - total_deposit,
         }
     )
 
@@ -65,9 +66,9 @@ def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: flo
         prev_price = df.loc[idx - 1, "Close"]
         curr_price = df.loc[idx, "Close"]
 
-        if curr_price <= prev_price * (1 - threshold):
+        if curr_price <= prev_price * (1 - threshold_pct):
             deposit = base_pad * 1.2
-        elif curr_price >= prev_price * (1 + threshold):
+        elif curr_price >= prev_price * (1 + threshold_pct):
             deposit = base_pad * 0.8
         else:
             deposit = base_pad
@@ -84,16 +85,15 @@ def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: flo
                 "TotalShares": total_shares,
                 "PortfolioValue": total_shares * curr_price,
                 "TotalDeposit": total_deposit,
+                "NetProfit": total_shares * curr_price - total_deposit,
             }
         )
 
     result = pd.DataFrame(history)
-    final_return = result.iloc[-1]["PortfolioValue"] / result.iloc[-1]["TotalDeposit"] - 1
-    result["FinalTotalReturn"] = final_return
     return result
 
 
-def run_backtest(price_csv: str | None = None, base_pad: float = 100.0, threshold: float = 0.2) -> pd.DataFrame:
+def run_backtest(price_csv: str | None = None, base_pad: float = 100.0, threshold: float = 20.0) -> pd.DataFrame:
     """Runs the backtest from a CSV file or by downloading data."""
 
     if price_csv:
@@ -114,5 +114,10 @@ if __name__ == "__main__":
     df = run_backtest(args.csv, base_pad=args.base)
     pd.set_option("display.max_rows", None)
     print(df)
-    print("\nFinal portfolio value:", df.iloc[-1]["PortfolioValue"])
-    print("Final total return:", df.iloc[-1]["FinalTotalReturn"])
+    final_value = df.iloc[-1]["PortfolioValue"]
+    total_deposit = df.iloc[-1]["TotalDeposit"]
+    final_return = (final_value / total_deposit - 1) * 100
+    net_profit = final_value - total_deposit
+    print("\nFinal portfolio value:", final_value)
+    print("Net profit:", net_profit)
+    print(f"Final total return: {final_return:.2f}%")
