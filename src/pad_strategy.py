@@ -14,7 +14,14 @@ def fetch_price_data(ticker: str) -> pd.DataFrame:
     return hist[["Date", "Close"]]
 
 
-def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: float = 20.0) -> pd.DataFrame:
+def backtest_pad(
+    price_df: pd.DataFrame,
+    base_pad: float = 100.0,
+    increase_threshold: float = 20.0,
+    decrease_threshold: float = 20.0,
+    increase_pad: float = 1.2,
+    decrease_pad: float = 0.8,
+) -> pd.DataFrame:
     """Backtests a percentage allocation strategy on VOO.
 
     Parameters
@@ -23,8 +30,14 @@ def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: flo
         DataFrame with columns ``Date`` and ``Close`` sorted by ``Date``.
     base_pad : float, default 100.0
         Base monthly purchase amount in dollars.
-    threshold : float, default 20.0
-        Percentage threshold used to increase or decrease the purchase amount.
+    increase_threshold : float, default 20.0
+        Percentage drop required to increase the purchase amount.
+    decrease_threshold : float, default 20.0
+        Percentage rise required to decrease the purchase amount.
+    increase_pad : float, default 1.2
+        Multiplier for the purchase amount when price drops sufficiently.
+    decrease_pad : float, default 0.8
+        Multiplier for the purchase amount when price rises sufficiently.
 
     Returns
     -------
@@ -42,7 +55,8 @@ def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: flo
     history = []
     total_shares = 0.0
     total_deposit = 0.0
-    threshold_pct = threshold / 100.0
+    inc_threshold_pct = increase_threshold / 100.0
+    dec_threshold_pct = decrease_threshold / 100.0
 
     # Deposit for first month
     first_price = df.loc[0, "Close"]
@@ -67,10 +81,10 @@ def backtest_pad(price_df: pd.DataFrame, base_pad: float = 100.0, threshold: flo
         prev_price = df.loc[idx - 1, "Close"]
         curr_price = df.loc[idx, "Close"]
 
-        if curr_price <= prev_price * (1 - threshold_pct):
-            deposit = base_pad * 1.2
-        elif curr_price >= prev_price * (1 + threshold_pct):
-            deposit = base_pad * 0.8
+        if curr_price <= prev_price * (1 - inc_threshold_pct):
+            deposit = base_pad * increase_pad
+        elif curr_price >= prev_price * (1 + dec_threshold_pct):
+            deposit = base_pad * decrease_pad
         else:
             deposit = base_pad
 
@@ -98,7 +112,10 @@ def run_backtest(
     price_csv: str | None = None,
     ticker: str = "VOO",
     base_pad: float = 100.0,
-    threshold: float = 20.0,
+    increase_threshold: float = 20.0,
+    decrease_threshold: float = 20.0,
+    increase_pad: float = 1.2,
+    decrease_pad: float = 0.8,
 ) -> pd.DataFrame:
     """Run the backtest using CSV data or by downloading data for ``ticker``."""
 
@@ -106,7 +123,14 @@ def run_backtest(
         price_df = pd.read_csv(price_csv)
     else:
         price_df = fetch_price_data(ticker)
-    return backtest_pad(price_df, base_pad=base_pad, threshold=threshold)
+    return backtest_pad(
+        price_df,
+        base_pad=base_pad,
+        increase_threshold=increase_threshold,
+        decrease_threshold=decrease_threshold,
+        increase_pad=increase_pad,
+        decrease_pad=decrease_pad,
+    )
 
 
 if __name__ == "__main__":
@@ -117,15 +141,41 @@ if __name__ == "__main__":
     parser.add_argument("--ticker", default="VOO", help="Ticker symbol to download prices for")
     parser.add_argument("--base", type=float, default=100.0, help="Base PAD amount")
     parser.add_argument(
-        "--threshold",
+        "--inc-thresh",
         type=float,
         default=20.0,
-        help="Percentage threshold for adjusting the PAD amount",
+        help="Percentage drop required to increase deposits",
+    )
+    parser.add_argument(
+        "--dec-thresh",
+        type=float,
+        default=20.0,
+        help="Percentage rise required to decrease deposits",
+    )
+    parser.add_argument(
+        "--inc-pad",
+        type=float,
+        default=1.2,
+        help="Multiplier for deposit when threshold drop met",
+    )
+    parser.add_argument(
+        "--dec-pad",
+        type=float,
+        default=0.8,
+        help="Multiplier for deposit when threshold rise met",
     )
     parser.add_argument("--log", help="Directory to store log file")
     args = parser.parse_args()
 
-    df = run_backtest(args.csv, ticker=args.ticker, base_pad=args.base, threshold=args.threshold)
+    df = run_backtest(
+        args.csv,
+        ticker=args.ticker,
+        base_pad=args.base,
+        increase_threshold=args.inc_thresh,
+        decrease_threshold=args.dec_thresh,
+        increase_pad=args.inc_pad,
+        decrease_pad=args.dec_pad,
+    )
     pd.set_option("display.max_rows", None)
     print(df)
 
@@ -133,31 +183,50 @@ if __name__ == "__main__":
     total_deposit = df.iloc[-1]["TotalDeposit"]
     final_return = (final_value / total_deposit - 1) * 100
     net_profit = final_value - total_deposit
+
+    lumpsum_shares = total_deposit / df.iloc[0]["Close"]
+    lumpsum_value = lumpsum_shares * df.iloc[-1]["Close"]
+    lumpsum_profit = lumpsum_value - total_deposit
+    profit_diff = net_profit - lumpsum_profit
+    profit_diff_pct = (profit_diff / lumpsum_profit * 100) if lumpsum_profit != 0 else 0.0
     start_date = df.iloc[0]["Date"].date()
     end_date = df.iloc[-1]["Date"].date()
     duration_days = (df.iloc[-1]["Date"] - df.iloc[0]["Date"]).days
 
-    print("\nFinal portfolio value:", final_value)
-    print("Total deposited:", total_deposit)
-    print("Net profit:", net_profit)
+    print("\nFinal portfolio value:", f"${final_value:,.2f}")
+    print("Total deposited:", f"${total_deposit:,.2f}")
+    print("Net profit:", f"${net_profit:,.2f}")
     print(f"Final total return: {final_return:.2f}%")
+    print("Lump sum net profit:", f"${lumpsum_profit:,.2f}")
+    print(
+        f"Difference vs lump sum: ${profit_diff:,.2f} ({profit_diff_pct:.2f}%)"
+    )
     print("Start date:", start_date)
     print("End date:", end_date)
     print(f"Duration: {duration_days} days")
 
     if args.log:
         os.makedirs(args.log, exist_ok=True)
-        log_path = os.path.join(
-            args.log,
-            f"{args.ticker}_{pd.Timestamp.now().strftime('%Y%m%d')}.txt",
-        )
+        fname_parts = [
+            args.ticker,
+            f"base{args.base}",
+            f"it{args.inc_thresh}",
+            f"dt{args.dec_thresh}",
+            f"ip{args.inc_pad}",
+            f"dp{args.dec_pad}",
+        ]
+        log_path = os.path.join(args.log, "_".join(fname_parts) + ".txt")
         with open(log_path, "w") as f:
             f.write(df.to_string(index=False))
             f.write("\n\n")
-            f.write(f"Final portfolio value: {final_value}\n")
-            f.write(f"Total deposited: {total_deposit}\n")
-            f.write(f"Net profit: {net_profit}\n")
+            f.write(f"Final portfolio value: ${final_value:,.2f}\n")
+            f.write(f"Total deposited: ${total_deposit:,.2f}\n")
+            f.write(f"Net profit: ${net_profit:,.2f}\n")
             f.write(f"Final total return: {final_return:.2f}%\n")
+            f.write(f"Lump sum net profit: ${lumpsum_profit:,.2f}\n")
+            f.write(
+                f"Difference vs lump sum: ${profit_diff:,.2f} ({profit_diff_pct:.2f}%)\n"
+            )
             f.write(f"Start date: {start_date}\n")
             f.write(f"End date: {end_date}\n")
             f.write(f"Duration: {duration_days} days\n")

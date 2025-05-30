@@ -31,19 +31,23 @@ python src/pad_strategy.py --csv data/voo_prices.csv
 python src/pad_strategy.py --ticker AAPL
 ```
 
-The threshold for adjusting deposits can be specified with `--threshold` (default `20`).
-Results can be logged to a directory using `--log <dir>`, which writes a file
-named like `TICKER_YYYYMMDD.txt` containing the final summary and history.
+Deposit adjustments are controlled with separate thresholds and multipliers.
+`--inc-thresh` and `--dec-thresh` specify the percentage drop or rise that
+triggers a change in deposits (both default to `20`). `--inc-pad` and
+`--dec-pad` are multipliers applied to the base deposit when those thresholds
+are met (defaults `1.2` and `0.8`).
+Results can be logged to a directory using `--log <dir>`. The file is named
+using the provided arguments so multiple runs can be stored side by side.
 
 This prints the month‑by‑month history. At the end it prints the final
 portfolio value, the total amount deposited, the net profit and the final
 total return as a percentage.
 
-The strategy threshold can be changed from the command line. For example, to
-use a 10% threshold and a $150 base deposit:
+You can adjust these settings from the command line. For example, to use a 10%
+increase threshold, a 15% decrease threshold and a $150 base deposit:
 
 ```bash
-python src/pad_strategy.py --base 150 --threshold 10
+python src/pad_strategy.py --base 150 --inc-thresh 10 --dec-thresh 15
 ```
 
 ## Running the tests
