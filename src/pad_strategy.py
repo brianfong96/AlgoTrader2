@@ -109,9 +109,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run PAD backtest on VOO.")
     parser.add_argument("--csv", help="Optional CSV file with Date and Close columns")
     parser.add_argument("--base", type=float, default=100.0, help="Base PAD amount")
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=20.0,
+        help="Percentage threshold for adjusting the PAD amount",
+    )
     args = parser.parse_args()
 
-    df = run_backtest(args.csv, base_pad=args.base)
+    df = run_backtest(args.csv, base_pad=args.base, threshold=args.threshold)
     pd.set_option("display.max_rows", None)
     print(df)
     final_value = df.iloc[-1]["PortfolioValue"]
@@ -119,5 +125,6 @@ if __name__ == "__main__":
     final_return = (final_value / total_deposit - 1) * 100
     net_profit = final_value - total_deposit
     print("\nFinal portfolio value:", final_value)
+    print("Total deposited:", total_deposit)
     print("Net profit:", net_profit)
     print(f"Final total return: {final_return:.2f}%")

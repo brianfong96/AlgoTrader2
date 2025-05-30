@@ -29,8 +29,18 @@ You can also supply your own CSV file:
 python src/pad_strategy.py --csv data/voo_prices.csv
 ```
 
+The threshold for adjusting deposits can be specified with `--threshold` (default `20`).
+
 This prints the month‑by‑month history. At the end it prints the final
-portfolio value, the net profit and the final total return as a percentage.
+portfolio value, the total amount deposited, the net profit and the final
+total return as a percentage.
+
+The strategy threshold can be changed from the command line. For example, to
+use a 10% threshold and a $150 base deposit:
+
+```bash
+python src/pad_strategy.py --base 150 --threshold 10
+```
 
 ## Running the tests
 
